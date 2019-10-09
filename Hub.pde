@@ -2,19 +2,47 @@ import controlP5.*;
 import processing.serial.*;
 import peasy.*;
 
+class myPacket {
+  public int pid;
+  public int px;
+  public int py;
+  public int pz;
+  public int ptemp;
+  public int po2;
+  public int pbpm;
+  
+  public myPacket(int pid, int px, int py, int pz, int ptemp, int po2, int pbpm) {
+    this.pid = pid;
+    this.px = px;
+    this.py = py;
+    this.pz = pz;
+    this.ptemp = ptemp;
+    this.po2 = po2;
+    this.pbpm = pbpm;
+  }
+}
+  
+  
+
 ControlP5 cp5;
 Serial port;
 Map map;
-PeasyCam cam;;
+PeasyCam cam;
 
+myPacket packet;
 PFont font;
 Button a;
 Button b;
 Button c;
+Button d;
+Button e;
+Button f;
 int col1 = color(0,255,0);
 int col2 = color(0,255,0);
+int col3 = color(0,255,0);
+int col4 = color(255,0,0);
 int count = 0;
-int[] id = {1, 2};
+int[] id = {0, 1};
 int[][] x = new int[2][100];
 int[][] y = new int[2][100];
 int[][] z = new int[2][100];
@@ -25,9 +53,11 @@ char[] smoke = {'N', 'Y'};
 //float angle = 0.0;
 int gridSize = 40;
 float xm, ym, zm;
-int is_up = 1;
+boolean isUp = true;
 int plot_count = 0;
-int plot_full = 0;
+boolean isPlotFull = false;
+int idTrack = 0;
+int[] input = new int[7];
 
 void settings() {
   fullScreen();
@@ -48,21 +78,40 @@ void setup(){
   font = createFont("Arial", 24, true);
   textFont(font, 40);
   a = cp5.addButton("Distress1")
-    .setPosition(1400,335)
+    .setPosition(1400,215)
     .setSize(125,50)
     .setFont(font)
     .setLabel("Send")
-    .setColorBackground(col1);
+    .setColorBackground(col1)
     ;
   b = cp5.addButton("Distress2")
-    .setPosition(1400,410)
+    .setPosition(1400,290)
     .setSize(125,50)
     .setFont(font)
     .setLabel("Send")
-    .setColorBackground(col2);
+    .setColorBackground(col2)
     ;
   c = cp5.addButton("Reset")
-    .setPosition(1400,500)
+    .setPosition(1400,380)
+    .setSize(125,50)
+    .setFont(font)
+    ;
+  d = cp5.addButton("Map1")
+    .setPosition(1590,215)
+    .setSize(125,50)
+    .setFont(font)
+    .setLabel("Map")
+    .setColorBackground(col3)
+    ;
+  e = cp5.addButton("Map2")
+    .setPosition(1590,290)
+    .setSize(125,50)
+    .setFont(font)
+    .setLabel("Map")
+    .setColorBackground(col3)
+    ;
+  f = cp5.addButton("Generate")
+    .setPosition(1300,70)
     .setSize(125,50)
     .setFont(font)
     ;
@@ -71,30 +120,35 @@ void setup(){
 void draw(){
   a.setColorBackground(col1);
   b.setColorBackground(col2);
+  d.setColorBackground(col3);
+  e.setColorBackground(col4);
   background(0,0,0);
+  
+
   //if (count % 10 == 0) {
   //  x[0] = int(random(999));
  //   x[1] = int(random(999));
  // }
-  text("ID    X        Y       Z      Temp     O2    BPM    Smoke    Distress      Map", 450, 300);
-  text(" "+id[0]+"   "+nf(x[0][plot_count], 3)+"    "+nf(y[0][plot_count], 3)+"     "+nf(z[0][plot_count], 2)+"      "+nf(temp[0], 3)+"      "+nf(o2[0], 3)+"    "+nf(bpm[0], 3)+"         "+smoke[0], 450, 375);
-  text(" "+id[1]+"   "+nf(x[1][plot_count], 3)+"    "+nf(y[1][plot_count], 3)+"     "+nf(z[1][plot_count], 2)+"      "+nf(temp[1], 3)+"      "+nf(o2[1], 3)+"    "+nf(bpm[1], 3)+"         "+smoke[1], 450, 450);
+  text("ID    X        Y       Z      Temp     O2    BPM    Smoke    Distress      Map", 450, 180);
+  text(" "+(id[0] + 1)+"   "+nf(x[0][plot_count], 3)+"    "+nf(y[0][plot_count], 3)+"     "+nf(z[0][plot_count], 2)+"      "+nf(temp[0], 3)+"      "+nf(o2[0], 3)+"    "+nf(bpm[0], 3)+"         "+smoke[0], 450, 255);
+  text(" "+(id[1] + 1)+"   "+nf(x[1][plot_count], 3)+"    "+nf(y[1][plot_count], 3)+"     "+nf(z[1][plot_count], 2)+"      "+nf(temp[1], 3)+"      "+nf(o2[1], 3)+"    "+nf(bpm[1], 3)+"         "+smoke[1], 450, 330);
   
   rectMode(CORNERS);
   noFill();
   stroke(255);
-  rect(425,250,1750,475);
-  line(425,325,1750,325);
-  line(500,250,500,475);
-  line(610,250,610,475);
-  line(720,250,720,475);
-  line(820,250,820,475);
-  line(975,250,975,475);
-  line(1085,250,1085,475);
-  line(1210,250,1210,475);
-  line(1375,250,1375,475);
-  line(1550,250,1550,475);
-  count++;
+  rect(425,130,1750,355);
+  line(425,205,1750,205);
+  line(500,130,500,355);
+  line(610,130,610,355);
+  line(720,130,720,355);
+  line(820,130,820,355);
+  line(975,130,975,355);
+  line(1085,130,1085,355);
+  line(1210,130,1210,355);
+  line(1375,130,1375,355);
+  line(1550,130,1550,355);
+  line(425,275,1750,275);
+ // count++;
 }
 
 
@@ -112,6 +166,59 @@ void Distress2() {
 void Reset() {
   col1 = color(0,255,0);
   col2 = color(0,255,0);
+  Map1();
+  for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < 100; j++) {
+      x[i][j] = 0;
+      y[i][j] = 0;
+      z[i][j] = 0;
+    }
+    temp[i] = 0;
+    o2[i] = 0;
+    bpm[i] = 0;
+  }
+  count = 0;
+}
+
+void Map1() {
+  if (idTrack != 0) {
+    col3 = color(0,255,0);
+    col4 = color(255,0,0);
+    idTrack = 0;
+  }
+}
+
+void Map2() {
+  if (idTrack != 1) {
+    col3 = color(255,0,0);
+    col4 = color(0,255,0);
+    idTrack = 1;
+  }
+}
+
+void Generate() {
+  port.write('R');
+  String myString = port.readStringUntil('\n');
+  
+  if (myString != null) {
+    plot_count++;
+    if (plot_count == 100) {
+      plot_count = 1;
+      isPlotFull = true;
+    }
+    input = int(split(myString, '\t'));
+    id[0] = input[0];
+    x[id[0]][plot_count] = input[1];
+    y[id[0]][plot_count] = input[2];
+    z[id[0]][plot_count] = input[3];
+    temp[id[0]] = input[4];
+    o2[id[0]] = input[5];
+    bpm[id[0]] = input[6];
+    count++;
+    x[1][plot_count] = int(random(500));
+    y[1][plot_count] = int(random(500));
+    z[1][plot_count] = int(random(10));
+  }
 }
 
 class Map extends PApplet {
@@ -122,7 +229,7 @@ class Map extends PApplet {
   }
   
   public void settings() {
-    size(700,700,P3D);
+    size(700,650,P3D);
     xm = width/2;
     ym = height/2;
     zm = 0;
@@ -130,6 +237,7 @@ class Map extends PApplet {
   
   public void setup() {
     surface.setTitle("Map");
+    surface.setAlwaysOnTop(true);
     background(0);
     cam = new PeasyCam(this, 700);
     cam.setMinimumDistance(500);
@@ -137,12 +245,12 @@ class Map extends PApplet {
   }
   
   public void draw() {
-    if (count % 10 == 0 && plot_count < 100) {
-      plot_count++;
-      if (plot_count == 100) {
-        plot_count = 1;
-        plot_full = 1;
-      }
+    //if (plot_count < 100) {
+      //plot_count++;
+    //if (plot_count == 100) {
+    //  plot_count = 1;
+    //  isPlotFull = true;
+   // }
       /*if (is_up == 1) {
         x[0][plot_count] = x[0][plot_count-1] + 10;
         if (x[0][plot_count] > 500) {
@@ -155,10 +263,13 @@ class Map extends PApplet {
           is_up = 1;
         }
       }*/
-      x[0][plot_count] = int(random(500));
+      /*x[0][plot_count] = int(random(500));
       y[0][plot_count] = int(random(500));
       z[0][plot_count] = int(random(10));
-    }
+      x[1][plot_count] = int(random(500));
+      y[1][plot_count] = int(random(500));
+      z[1][plot_count] = int(random(10));*/
+    //}
  
     rotateX(-.001);
     rotateY(-.001);
@@ -209,26 +320,28 @@ class Map extends PApplet {
 
  
  
-  if (plot_full == 0) {
+  if (!isPlotFull) {
     for (int j = 0; j < plot_count; j++) {
-      plot(x[0][j],y[0][j],z[0][j], color(255,0,0));
+      plot(x[idTrack][j],y[idTrack][j],z[idTrack][j], color(255,0,0));
     }
-    plot(x[0][plot_count],y[0][plot_count],z[0][plot_count], color(0,255,0)); //<>//
+    plot(x[idTrack][plot_count],y[idTrack][plot_count],z[idTrack][plot_count], color(0,255,0));
   }
   else {
     for (int j = 0; j < 100; j++) {
       if (j != plot_count) {
-        plot(x[0][j],y[0][j],z[0][j], color(255,0,0));
+        plot(x[idTrack][j],y[idTrack][j],z[idTrack][j], color(255,0,0));
       }
     }
-      plot(x[0][plot_count],y[0][plot_count],z[0][plot_count], color(0,255,0));
+      plot(x[idTrack][plot_count],y[idTrack][plot_count],z[idTrack][plot_count], color(0,255,0));
   }
       
   popMatrix();
  
   printCamera();
   
-  text("Count = "+(count / 10),250,520,0);
+  text("Count = "+count,20,530,0);
+  textSize(32);
+  text("X = "+x[idTrack][plot_count]+"  Y = "+y[idTrack][plot_count]+"  Z = "+z[idTrack][plot_count],20,560,0);
 
   }
   
