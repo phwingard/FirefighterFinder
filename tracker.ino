@@ -1,56 +1,29 @@
-//#include <Wire.h>
-#include "MAX30105.h"           //MAX3010x library
-#include "heartRate.h"          //Heart rate calculating algorithm
+#include <Wire.h>
+#include "MAX30105.h"
+#include "spo2_algorithm.h"
 #include <Adafruit_Sensor.h>
 #include <Adafruit_FXOS8700.h>
 #include <Adafruit_FXAS21002C.h>
+//#include <MadgwickAHRS.h>
+#include "heartRate.h"          //Heart rate calculating algorithm
 #include <SPI.h>
 #include <RH_RF69.h>
 #include "MyPacketStruct.h"
-#include <MadgwickAHRS.h>
-#include "spo2_algorithm.h"
+#include <SensorFusion.h>
+SF fusion;
+float deltat;
 
-//Radio variables
-#define RF69_FREQ 915.0
-//#if defined (__AVR_ATmega328P__)  // Feather 328P w/wing
-  #define RFM69_INT     2  // 
-  #define RFM69_CS      30  //
-  #define RFM69_RST     31  // "A"
-  #define LED           13  //dont use yet
-//#endif
-RH_RF69 rf69(RFM69_CS, RFM69_INT);
-int16_t packetnum = 0;  // packet counter, we increment per xmission
-
-//custom radio packet
-MyRadioPacket message;
-
-//Thermistor variables
-int ThermistorPin = A0;
-int Vo;
-float R1 = 10000;
-float logR2, R2, T;
-float c1 = 1.009249522e-03, c2 = 2.378405444e-04, c3 = 2.019202697e-07;
-
-//Oximeter variables
 MAX30105 particleSensor;
-const byte RATE_SIZE = 8; //Increase this for more averaging. 4 is good.
-byte rates[RATE_SIZE]; //Array of heart rates
-byte rateSpot = 0;
-long lastBeat = 0; //Time at which the last beat occurred
-float beatsPerMinute;
-int beatAvg;
-float filteredBPM = 0;
-float alpha2 = 0.3;
 #define MAX_BRIGHTNESS 255
 
 #if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega168__)
 //Arduino Uno doesn't have enough SRAM to store 100 samples of IR led data and red led data in 32-bit format
 //To solve this problem, 16-bit MSB of the sampled data will be truncated. Samples become 16-bit data.
-uint16_t irBuffer[100]; //infrared LED sensor data
-uint16_t redBuffer[100];  //red LED sensor data
+uint16_t irBuffer[50]; //infrared LED sensor data
+uint16_t redBuffer[50];  //red LED sensor data
 #else
-uint32_t irBuffer[100]; //infrared LED sensor data
-uint32_t redBuffer[100];  //red LED sensor data
+uint32_t irBuffer[50]; //infrared LED sensor data
+uint32_t redBuffer[50];  //red LED sensor data
 #endif
 
 int32_t bufferLength; //data length
@@ -59,41 +32,76 @@ int8_t validSPO2; //indicator to show if the SPO2 calculation is valid
 int32_t heartRate; //heart rate value
 int8_t validHeartRate; //indicator to show if the heart rate calculation is valid
 
-/*
-//Smoke sensor variables
-int smokeA1 = A1;
-int sensorThres = 400;  //threshold value
-int smokeD7 = 7;*/
+byte pulseLED = 11; //Must be on PWM pin
+byte readLED = 13; //Blinks with each data read
 
-//IMU variables
+
 /* Assign a unique ID to this sensor at the same time */
 Adafruit_FXAS21002C gyro = Adafruit_FXAS21002C(0x0021002C);
 Adafruit_FXOS8700 accelmag = Adafruit_FXOS8700(0x8700A, 0x8700B);
-Madgwick filter;
+//Madgwick filter;
+//Function Declaration for EMA Filters
 float LowEMA(float Aold, float Anew, float beta);
 float HighEMA(float Aold, float Anew, float beta);
-// Initialize the EMA filter
-float Axnew = 0; float Aynew = 0; float Aznew = 0; //Sets initial acceleration to 0
-float Axold = 0; float Ayold = 0; float Azold = 0; //Sets initial acceleration to 0
-float Mxnew = 0; float Mynew = 0; float Mznew = 0; //Sets initial Magnetic Reading to 0
-float Mxold = 0; float Myold = 0; float Mzold = 0; //Sets initial Magnetic Reading to 0
-float Gxnew = 0; float Gynew = 0; float Gznew = 0; //Sets initial Magnetic Reading to 0
-float Gxold = 0; float Gyold = 0; float Gzold = 0; //Sets initial Magnetic Reading to 0
-float Pnew = 0, Pold = 0, Ynew = 0, Yold = 0, Rnew = 0, Rold = 0;//Sets up filtering for Madgwick Output
-float alpha = 0.5; //Sets alpha for EMA filter
+float Vupdate(float delta, float a, float vold);
+float Pupdate(float delta, float v, float pold);
+
+void displaySensorDetails(void)
+{
+  sensor_t sensor;
+  gyro.getSensor(&sensor);
+  Serial.println("------------------------------------");
+  Serial.print  ("Sensor:       "); Serial.println(sensor.name);
+  Serial.print  ("Driver Ver:   "); Serial.println(sensor.version);
+  Serial.print  ("Unique ID:    0x"); Serial.println(sensor.sensor_id, HEX);
+  Serial.print  ("Max Value:    "); Serial.print(sensor.max_value); Serial.println(" rad/s");
+  Serial.print  ("Min Value:    "); Serial.print(sensor.min_value); Serial.println(" rad/s");
+  Serial.print  ("Resolution:   "); Serial.print(sensor.resolution); Serial.println(" rad/s");
+  Serial.println("------------------------------------");
+  Serial.println("");
+  delay(500);
+}
+
+//Thermistor variables
+int ThermistorPin = A0;
+int Vo;
+float R1 = 10000;
+float logR2, R2, T;
+float c1 = 1.009249522e-03, c2 = 2.378405444e-04, c3 = 2.019202697e-07;
+
+//Radio variables
+#define RF69_FREQ 915.0
+//#if defined (__AVR_ATmega328P__)  // Feather 328P w/wing
+  #define RFM69_INT     3  // 
+  #define RFM69_CS      30  //
+  #define RFM69_RST     31  // "A"
+  #define LED           40  //dont use yet
+//#endif
+RH_RF69 rf69(RFM69_CS, RFM69_INT);
+int16_t packetnum = 0;  // packet counter, we increment per xmission
+
+//custom radio packet
+MyRadioPacket message;
+int remoteHelp = 0;
+#define GATEWAYID   1
 
 
 //pushbutton variables
 int helpButton = 32;
 int buttonState = 0;
 
+
 void setup() {
-  Serial.begin(115200);
+
+  Serial.begin(115200); // initialize serial communication at 115200 bits per second:
   Wire.begin();
   //help button
   pinMode(helpButton, INPUT);
   
-  //Oximeter
+  pinMode(pulseLED, OUTPUT);
+  pinMode(readLED, OUTPUT);
+
+  // Initialize sensor
   if (!particleSensor.begin(Wire, I2C_SPEED_FAST)) //Use default I2C port, 400kHz speed
   {
     Serial.println(F("MAX30105 was not found. Please check wiring/power."));
@@ -113,28 +121,28 @@ void setup() {
 
   particleSensor.setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange); //Configure sensor with these settings
 
-
-  /*//smoke sensor
-  pinMode(smokeA1, INPUT);
-  pinMode(smokeD7, INPUT);
-*/
-  //IMU
+  while (!Serial) {
+    delay(1);
+  }
+  /* Initialise the sensor */
   if(!gyro.begin())
   {
     /* There was a problem detecting the FXAS21002C ... check your connections */
     Serial.println("Ooops, no FXAS21002C detected ... Check your wiring!");
-    //while(1);
+    while(1);
   }
   if(!accelmag.begin())
   {
     /* There was a problem detecting the FXAS21002C ... check your connections */
     Serial.println("Ooops, no FXAS21002C detected ... Check your wiring!");
-    //while(1);
+    while(1);
   }
   /* Display some basic information on this sensor */
   displaySensorDetails();
+  //Setup filter
+  delay(500);
 
-  //radio setup
+//radio setup
   pinMode(LED, OUTPUT);     
   pinMode(RFM69_RST, OUTPUT);
   digitalWrite(RFM69_RST, LOW);
@@ -164,16 +172,25 @@ void setup() {
                     0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
   rf69.setEncryptionKey(key);
   
-  pinMode(LED, OUTPUT);
+  //pinMode(LED, OUTPUT);
+  Serial.println("Done with init.");
+  delay(1000);
 
-  //Serial.print("RFM69 radio @");  Serial.print((int)RF69_FREQ);  Serial.println(" MHz");
-  
 }
+
+float axold = 0, ayold = 0, azold = 0;
+float axro = 0, ayro = 0, azro = 9.8;
+float mxold = 0, myold = 0, mzold = 0;
+float gravx = 0, gravy = 0, gravz = 9.8;
+float vx = 0, vy = 0, vz = 0, px = 0, py = 0, pz = 0;
+float pxo = 0, pyo = 0, pzo = 0;
+float vxo = 0, vyo = 0, vzo = 0;
+
 
 void loop() {
 
   buttonPushed();
-  
+  showDistress();
   //Thermistor code
   Vo = analogRead(ThermistorPin);
   R2 = R1 * (1023.0 / (float)Vo - 1.0);
@@ -182,12 +199,10 @@ void loop() {
   T = T - 273.15;
   T = (T * 9.0)/ 5.0 + 32.0; 
 
-  Serial.print("Temperature: "); 
-  Serial.print(T);
-  Serial.println(" F"); 
-  dtostrf(T, 7, 3, message.temp);
+  //Serial.print("Temperature: "); 
+  //Serial.print(T);
+  //Serial.println(" F"); 
   
-  //Oximeter code
   bufferLength = 50; //buffer length of 100 stores 4 seconds of samples running at 25sps
 
   //read the first 100 samples, and determine the signal range
@@ -200,10 +215,10 @@ void loop() {
     irBuffer[i] = particleSensor.getIR();
     particleSensor.nextSample(); //We're finished with this sample so move to next sample
 
-    Serial.print(F("red="));
+    /*Serial.print(F("red="));
     Serial.print(redBuffer[i], DEC);
     Serial.print(F(", ir="));
-    Serial.println(irBuffer[i], DEC);
+    Serial.println(irBuffer[i], DEC);*/
   }
 
   //calculate heart rate and SpO2 after first 100 samples (first 4 seconds of samples)
@@ -211,14 +226,14 @@ void loop() {
 
   //Continuously taking samples from MAX30102.  Heart rate and SpO2 are calculated every 1 second
     //dumping the first 25 sets of samples in the memory and shift the last 75 sets of samples to the top
-    for (byte i = 25; i < 100; i++)
+    for (byte i = 25; i < 50; i++)
     {
       redBuffer[i - 25] = redBuffer[i];
       irBuffer[i - 25] = irBuffer[i];
     }
 
     //take 25 sets of samples before calculating the heart rate.
-    for (byte i = 75; i < 100; i++)
+    for (byte i = 25; i < 50; i++)
     {
       while (particleSensor.available() == false) //do we have new data?
         particleSensor.check(); //Check the sensor for new data
@@ -230,7 +245,7 @@ void loop() {
       particleSensor.nextSample(); //We're finished with this sample so move to next sample
 
       //send samples and calculation result to terminal program through UART
-      Serial.print(F("red="));
+      /*Serial.print(F("red="));
       Serial.print(redBuffer[i], DEC);
       Serial.print(F(", ir="));
       Serial.print(irBuffer[i], DEC);
@@ -245,173 +260,210 @@ void loop() {
       Serial.print(spo2, DEC);
 
       Serial.print(F(", SPO2Valid="));
-      Serial.println(validSPO2, DEC);
+      Serial.println(validSPO2, DEC);*/
     }
 
+      /*Serial.print(F(", HR="));
+      Serial.print(heartRate, DEC);
+      Serial.print(F(", SPO2="));
+      Serial.println(spo2, DEC);
+      */
     //After gathering 25 new samples recalculate HR and SP02
     maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &spo2, &validSPO2, &heartRate, &validHeartRate);
-  
 
-/*
-  //Smoke sensor code
-  int analogSensor = analogRead(smokeA1);
-  //Serial.print("Analog Value: ");
-  //Serial.println(analogSensor);
-  if (analogSensor > sensorThres)
-  {
-    Serial.println("Level reached.");
-  }*/
-  
-  //IMU code
-float roll, pitch, heading;
-  unsigned long microsNow;
 
-  //Code from MadgwickAHRS sample
-  microsNow = micros();
-    /* Get a new sensor event */
+  float roll, yaw, pitch;
+  float gx, gy, gz, ax, ay, az, mx, my, mz;
+  
+  
+  //Getting Sensor Data
+  /* Get a new sensor event */
   sensors_event_t event;
   gyro.getEvent(&event);
-  /*High Pass Filter for Gyro events Excludes Drift*/
-  Gxold = Gxnew; Gyold = Gynew; Gzold = Gznew;
-  Gxnew = HighEMA(Gxold, event.gyro.x, 0.9);
-  Gynew = HighEMA(Gyold, event.gyro.y, 0.9);
-  Gznew = HighEMA(Gzold, event.gyro.z, 0.9);
+  gx = event.gyro.x; 
+  gy = event.gyro.y;
+  gz = event.gyro.z;
   
-  /* Display the results (speed is measured in rad/s) 
-  Serial.print("X: "); Serial.print(Gxnew); Serial.print("  ");
-  Serial.print("Y: "); Serial.print(Gynew); Serial.print("  ");
-  Serial.print("Z: "); Serial.print(Gznew); Serial.print("  ");
-  Serial.println("rad/s ");
-  delay(10); */
-
-  //Accel and Magnetometer Sample code
   sensors_event_t aevent, mevent;
-
   /* Get a new sensor event */
   accelmag.getEvent(&aevent, &mevent);
-  /*Low Pass Filter for Accel events*/
-  Axold = Axnew; Ayold = Aynew; Azold = Aznew;
-  Axnew = alpha*aevent.acceleration.x + (1-alpha)*Axold;
-  Aynew = alpha*aevent.acceleration.y + (1-alpha)*Ayold;
-  Aznew = alpha*aevent.acceleration.z + (1-alpha)*Azold;
+  ax = aevent.acceleration.x;
+  ay = aevent.acceleration.y;
+  az = aevent.acceleration.z;
+  
+  //Removes noise from Accelerometer Data
+  ax = LowEMA(axold, ax, 0.3);
+  ay = LowEMA(ayold, ay, 0.3);
+  az = LowEMA(azold, az, 0.3);
+  axold = ax;
+  ayold = ay;
+  azold = az;
+  
+  mx = aevent.magnetic.x;
+  my = aevent.magnetic.y;
+  mz = aevent.magnetic.z;
+  
+  //Removes noise from Magnetometer Data
+  mx = LowEMA(mxold, mx, 0.5);
+  my = LowEMA(myold, my, 0.5);
+  mz = LowEMA(mzold, mz, 0.5);
+  mxold = mx;
+  myold = my;
+  mzold = mz;
+  
+  //Madgwick filter
+  deltat = fusion.deltatUpdate();
+  fusion.MadgwickUpdate(gx, gy, gz, ax, ay, az, mx, my, mz, deltat);  //else use the magwick
+  float deg2rad = 0.0174533;
+  
+  roll = fusion.getRoll()*deg2rad;
+  pitch = fusion.getPitch()*deg2rad;
+  yaw = fusion.getYaw()*deg2rad;
+  
+  
+  //Getting the Rotation Vector
+  float r11, r12, r13, r21, r22, r23, r31, r32, r33;
+  r11 = cos(pitch)*cos(yaw);
+  r12 = cos(pitch)*sin(yaw);
+  r13 = -sin(pitch);
+  r21 = sin(roll)*sin(pitch)*cos(yaw) - cos(roll)*sin(yaw);
+  r22 = sin(roll)*sin(pitch)*sin(yaw) + cos(roll)*cos(yaw);
+  r23 = sin(roll)*cos(pitch);
+  r31 = cos(roll)*sin(pitch)*cos(yaw)+sin(roll)*sin(yaw);
+  r32 = cos(roll)*sin(pitch)*sin(yaw) - sin(roll)*cos(yaw);
+  r33 = cos(roll)*cos(pitch);
+  
+  //Rotating Acceleration by Rotation Vector
+  float axr, ayr, azr;
+  axr = r11*ax + r12*ay + r13*az;
+  ayr = r21*ax + r22*ay + r23*az;
+  azr = r31*ax + r32*ay + r33*az;
+  
+  //Low Pass Filter to remove Rapid 'jitter'
+  axr = LowEMA(axro, axr, 0.1);
+  ayr = LowEMA(ayro, ayr, 0.1);
+  azr = LowEMA(azro, azr, 0.1);
+  axro = axr;
+  ayro = ayr;
+  azro = azr;
 
-  /* Display the accel results (acceleration is measured in m/s^2) */
-  /*Serial.print("A ");
-  Serial.print("X: "); Serial.print(Axnew, 4); Serial.print("  ");
-  Serial.print("Y: "); Serial.print(Aynew, 4); Serial.print("  ");
-  Serial.print("Z: "); Serial.print(Aznew, 4); Serial.print("  ");
+  //Gravity Adjustment
+  gravx = LowEMA(gravx, axr, 0.02);
+  gravy = LowEMA(gravy, ayr, 0.02);
+  gravz = LowEMA(gravz, azr, 0.02);
+
+ 
+
+
+  //Position Calculation
+  vx = Vupdate(deltat, axr-gravx, vx);
+  vy = Vupdate(deltat, ayr-gravy, vy);
+  vz = Vupdate(deltat, azr-gravz, vz);
+  vxo = LowEMA(vxo, vx, 0.002);
+  vyo = LowEMA(vyo, vy, 0.002);
+  vzo = LowEMA(vzo, vz, 0.002);
+
+  px = Pupdate(deltat, vx-vxo, px);
+  py = Pupdate(deltat, vy-vyo, py);
+  pz = Pupdate(deltat, vz-vzo, pz);
+ 
+/*
+  Serial.print("X: "); Serial.print(px, 4); Serial.print("  ");
+  Serial.print("Y: "); Serial.print(py, 4); Serial.print("  ");
+  Serial.print("Z: "); Serial.print(pz, 4); Serial.print("  ");  
+  Serial.println("m");*/
+  
+ /* //Print for Accelerometer
+  Serial.print("X: "); Serial.print(axr, 4); Serial.print("  ");
+  Serial.print("Y: "); Serial.print(ayr, 4); Serial.print("  ");
+  Serial.print("Z: "); Serial.print(azr, 4); Serial.print("  ");
   Serial.println("m/s^2");*/
-  
-  /*Low Pass Filter for magnetic events*/
-  Mxold = Mxnew; Myold = Mynew; Mzold = Mznew;
-  Mxnew = alpha*aevent.magnetic.x + (1-alpha)*Mxold;
-  Mynew = alpha*aevent.magnetic.y + (1-alpha)*Myold;
-  Mznew = alpha*aevent.magnetic.z + (1-alpha)*Mzold;
-  /* Display the mag results (mag data is in uTesla) */
-  /*Serial.print("M ");
-  Serial.print("X: "); Serial.print(Mxnew, 1); Serial.print("  ");
-  Serial.print("Y: "); Serial.print(Mynew, 1); Serial.print("  ");
-  Serial.print("Z: "); Serial.print(Mznew, 1); Serial.print("  ");
+
+/* //Print for Magnetometer
+  Serial.print("X: "); Serial.print(mx, 4); Serial.print("  ");
+  Serial.print("Y: "); Serial.print(my, 4); Serial.print("  ");
+  Serial.print("Z: "); Serial.print(mz, 4); Serial.print("  ");
   Serial.println("uT");
-  Serial.println("");*/
-  //Madgwick filter Implementation
-  filter.updateIMU(Gxnew, Gynew, Gznew, Axnew, Aynew, Aznew);
-  roll = filter.getRollRadians(); pitch = filter.getPitchRadians(); heading = filter.getYawRadians();
-  //Filtering Noise off of Madgwick Output
-  /*Low Pass Filter for Direction*/
-  Yold = Ynew; Pold = Pnew; Rold = Rnew;
-  Rnew = LowEMA(Rold, roll, 0.5);
-  Ynew = LowEMA(Yold, heading, 0.5);
-  Pnew = LowEMA(Pold, pitch, 0.5);
   
-  Serial.print("Orientation: ");
-  Serial.print(heading);
-  Serial.print(" ");
-  Serial.print(pitch);
-  Serial.print(" ");
-  Serial.println(roll);
-  Serial.println();
-  delay(500);
-  
+  //Print for Gyroscope
+  Serial.print("X: "); Serial.print(gx, 4); Serial.print("  ");
+  Serial.print("Y: "); Serial.print(gy, 4); Serial.print("  ");
+  Serial.print("Z: "); Serial.print(gz, 4); Serial.print("  ");
+  Serial.println("rad/sec");
+  */
 
-  //Computing Actual Acceleration in regards to orientation
-  float R11, R12, R13, R21, R22, R23, R31, R32, R33;
-  R11 = cos(Pnew)*cos(Ynew);
-  R12 = cos(Pnew)*sin(Ynew);
-  R13 = -sin(Ynew);
-  R21 = sin(Rnew)*sin(Pnew)*cos(Ynew)-cos(Rnew)*sin(Ynew);
-  R22 = sin(Rnew)*sin(Pnew)*sin(Ynew)+cos(Rnew)*cos(Ynew);
-  R23 = sin(Rnew)*cos(Ynew);
-  R31 = cos(Rnew)*sin(Pnew)*cos(Ynew)-sin(Rnew)*sin(Ynew);
-  R32 = cos(Rnew)*sin(Pnew)*sin(Ynew) - sin(Rnew)*cos(Ynew);
-  R33 = cos(Rnew)*cos(Ynew);
-  float ax, ay, az;
-  
-  ax = R11*Axnew + R12*Aynew + R13*Aznew;
-  ay = R21*Axnew + R22*Aynew + R23*Aznew;
-  az = R31*Axnew + R32*Aynew + R33*Aznew;
 
-  /*Serial.print("A ");
-  Serial.print("X: "); Serial.print(ax, 4); Serial.print("  ");
-  Serial.print("Y: "); Serial.print(ay, 4); Serial.print("  ");
-  Serial.print("Z: "); Serial.print(az, 4); Serial.print("  ");
-  Serial.println("m/s^2");
-  Serial.println();*/
+  dtostrf(T, 5, 0, message.temp);
+  dtostrf(heartRate, 5, 0, message.bpm);
+  dtostrf(spo2, 5, 0, message.spO2);
+  dtostrf(px, 5, 0, message.posX);
+  dtostrf(py, 5, 0, message.posY);
+  dtostrf(pz, 5, 0, message.posZ);
+  dtostrf(buttonState, 5, 0, message.helpButton);
+
+  String s = " ";
+  //String num = "\0";
+  //char radiopacket[31] = message.radioID + s + message.temp + s + message.bpm + s + message.spO2 + s + message.posX + s + message.posY + s + message.posZ + s + message.helpButton;
+  String radiopacket = message.temp + s + message.bpm + s + message.spO2 + s + message.posX + s + message.posY + s + message.posZ + s + message.helpButton + s;
+  char newPacket[36];
   
-  //radio code
-  char radiopacket[8];
-  //Serial.println(message.temp);
-  memcpy(radiopacket, message.temp, sizeof(radiopacket));  //modify this to send a packet for each peripheral
-  //float radiopacket = T;  
-    itoa(packetnum++, radiopacket+13, 10);
-    //Serial.print("Sending "); Serial.println(radiopacket);
-    
-    // Send a message!
-    rf69.send((uint8_t *)radiopacket, strlen(radiopacket));
-    rf69.waitPacketSent();
+  int packetLen = strlen(newPacket);
+  radiopacket.toCharArray(newPacket, packetLen);
+  int newLen = radiopacket.length();
+  //Serial.println(newLen);
+  Serial.println("Format: Temperature  BPM  SPO2  X-Pos  Y-Pos  Z-Pos  DistressSignal MessageNum");
+  //Serial.print("Correct Message: ");
+  //Serial.println(radiopacket);
+  itoa(packetnum++, newPacket+36, 10);
+  //Serial.print("Packet Length: ");
+  //Serial.println(packetLen);
+  Serial.print("Sending: "); Serial.println(newPacket);
+
   
-    // Now wait for a reply
-    uint8_t buf[RH_RF69_MAX_MESSAGE_LEN];
-    uint8_t len = sizeof(buf);
-  
-    if (rf69.waitAvailableTimeout(500))  { 
-      // Should be a reply message for us now   
-      if (rf69.recv(buf, &len)) {
-        //Serial.print("Got a reply: ");
-        //Serial.println((char*)buf);
-        Blink(LED, 50, 3); //blink LED 3 times, 50ms between blinks
-      } else {
-        //Serial.println("Receive failed");
+  // Send a message!
+  rf69.send((char *)newPacket, newLen);
+  rf69.waitPacketSent();
+
+  // Now wait for a reply
+  uint8_t buf[RH_RF69_MAX_MESSAGE_LEN];
+  uint8_t len = sizeof(buf);
+
+  if (rf69.waitAvailableTimeout(500))  { 
+    // Should be a reply message for us now   
+    if (rf69.recv(buf, &len)) {
+      Serial.print("Got a reply: ");
+      Serial.println((char*)buf);
+      if (strstr((char *)buf, "1")) {
+        remoteHelp = 1;
       }
     } else {
-      //Serial.println("No reply, is another RFM69 listening?");
+      Serial.println("Receive failed");
     }
+  } else {
+    //Serial.println("No reply, is another RFM69 listening?");
+  }
+  //newPacket[0] = 0;  //reset the message 
+  //radiopacket = "";
+  Serial.println();
 }
 
-void displaySensorDetails(void)  //displays IMU details
-{
-  sensor_t sensor;
-  gyro.getSensor(&sensor);
-  Serial.println("------------------------------------");
-  Serial.print  ("Sensor:       "); Serial.println(sensor.name);
-  Serial.print  ("Driver Ver:   "); Serial.println(sensor.version);
-  Serial.print  ("Unique ID:    0x"); Serial.println(sensor.sensor_id, HEX);
-  Serial.print  ("Max Value:    "); Serial.print(sensor.max_value); Serial.println(" rad/s");
-  Serial.print  ("Min Value:    "); Serial.print(sensor.min_value); Serial.println(" rad/s");
-  Serial.print  ("Resolution:   "); Serial.print(sensor.resolution); Serial.println(" rad/s");
-  Serial.println("------------------------------------");
-  Serial.println("");
-  delay(500);
-}
-
-void Blink(byte PIN, byte DELAY_MS, byte loops) {
-  for (byte i=0; i<loops; i++)  {
-    digitalWrite(PIN,HIGH);
-    delay(DELAY_MS);
-    digitalWrite(PIN,LOW);
-    delay(DELAY_MS);
+void buttonPushed(){
+  buttonState = digitalRead(helpButton);
+  if(buttonState == HIGH){
+    //Serial.println("Help Needed!");
+    //send message via radio
   }
 }
+
+void showDistress(){
+  if(buttonState == HIGH || remoteHelp == 1){
+    digitalWrite(LED, HIGH);
+  }
+  else{
+    digitalWrite(LED, LOW);
+  }
+}
+
 
 float LowEMA(float Aold, float Anew, float beta){
   float Afil = beta*Anew + (1-beta)*Aold;
@@ -423,14 +475,12 @@ float HighEMA(float Aold, float Anew, float beta){
   return Afil;
 }
 
-void buttonPushed(){
-  buttonState = digitalRead(helpButton);
-  if(buttonState == HIGH){
-    Serial.println("Help Needed!");
-    //send message via radio
-  }
+float Vupdate(float delta, float a, float vold){
+  float vnew = vold + delta*a;
+  return vnew;
 }
 
-void checkDistressFromHub(){
-
+float Pupdate(float delta, float v, float pold){
+  float pnew = pold + delta*v;
+  return pnew;
 }
