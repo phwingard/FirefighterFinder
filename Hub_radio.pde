@@ -139,6 +139,30 @@ void draw(){
       safe[i] = 'Y';
     }
   }
+  
+  if (port.available() != 0) {
+    String myString = port.readStringUntil('\n');
+  
+    if (myString != null) {
+      plot_count++;
+      if (plot_count == 100) {
+        plot_count = 1;
+        isPlotFull = true;
+      }
+      input = int(split(myString, '\t'));
+      x[0][plot_count] = input[1];
+      y[0][plot_count] = input[2];
+      z[0][plot_count] = input[3];
+      temp[0] = input[4];
+      o2[0] = input[5];
+      bpm[0] = input[6];
+      count++;
+      x[1][plot_count] = int(random(500));
+      y[1][plot_count] = int(random(500));
+      z[1][plot_count] = int(random(10));
+    }
+  }
+    
 
   //if (count % 10 == 0) {
   //  x[0] = int(random(999));
@@ -232,7 +256,6 @@ void Generate() {
       isPlotFull = true;
     }
     input = int(split(myString, '\t'));
-    id[0] = input[0];
     x[id[0]][plot_count] = input[1];
     y[id[0]][plot_count] = input[2];
     z[id[0]][plot_count] = input[3];
