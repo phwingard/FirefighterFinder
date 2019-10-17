@@ -199,6 +199,15 @@ void loop() {
   T = T - 273.15;
   T = (T * 9.0)/ 5.0 + 32.0; 
 
+  if(T > 70){
+    remoteHelp = 1;
+    showDistress();
+  }
+  else{
+    remoteHelp = 0;
+    showDistress();
+  }
+
   //Serial.print("Temperature: "); 
   //Serial.print(T);
   //Serial.println(" F"); 
@@ -271,13 +280,13 @@ void loop() {
     //After gathering 25 new samples recalculate HR and SP02
     maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &spo2, &validSPO2, &heartRate, &validHeartRate);
 
-
+  
   float roll, yaw, pitch;
   float gx, gy, gz, ax, ay, az, mx, my, mz;
   
   
   //Getting Sensor Data
-  /* Get a new sensor event */
+  // Get a new sensor event 
   sensors_event_t event;
   gyro.getEvent(&event);
   gx = event.gyro.x; 
@@ -285,7 +294,7 @@ void loop() {
   gz = event.gyro.z;
   
   sensors_event_t aevent, mevent;
-  /* Get a new sensor event */
+  // Get a new sensor event 
   accelmag.getEvent(&aevent, &mevent);
   ax = aevent.acceleration.x;
   ay = aevent.acceleration.y;
@@ -366,7 +375,7 @@ void loop() {
   px = Pupdate(deltat, vx-vxo, px);
   py = Pupdate(deltat, vy-vyo, py);
   pz = Pupdate(deltat, vz-vzo, pz);
- 
+
 /*
   Serial.print("X: "); Serial.print(px, 4); Serial.print("  ");
   Serial.print("Y: "); Serial.print(py, 4); Serial.print("  ");
@@ -379,7 +388,8 @@ void loop() {
   Serial.print("Z: "); Serial.print(azr, 4); Serial.print("  ");
   Serial.println("m/s^2");*/
 
-/* //Print for Magnetometer
+ //Print for Magnetometer
+ /*
   Serial.print("X: "); Serial.print(mx, 4); Serial.print("  ");
   Serial.print("Y: "); Serial.print(my, 4); Serial.print("  ");
   Serial.print("Z: "); Serial.print(mz, 4); Serial.print("  ");
@@ -389,8 +399,8 @@ void loop() {
   Serial.print("X: "); Serial.print(gx, 4); Serial.print("  ");
   Serial.print("Y: "); Serial.print(gy, 4); Serial.print("  ");
   Serial.print("Z: "); Serial.print(gz, 4); Serial.print("  ");
-  Serial.println("rad/sec");
-  */
+  Serial.println("rad/sec");*/
+  
 
 
   dtostrf(T, 5, 0, message.temp);
@@ -400,28 +410,31 @@ void loop() {
   dtostrf(py, 5, 0, message.posY);
   dtostrf(pz, 5, 0, message.posZ);
   dtostrf(buttonState, 5, 0, message.helpButton);
-
+  String sT = message.temp;
+  //Serial.println(sT);
+  //Serial.print(message.temp); 
   String s = " ";
   //String num = "\0";
   //char radiopacket[31] = message.radioID + s + message.temp + s + message.bpm + s + message.spO2 + s + message.posX + s + message.posY + s + message.posZ + s + message.helpButton;
-  String radiopacket = message.temp + s + message.bpm + s + message.spO2 + s + message.posX + s + message.posY + s + message.posZ + s + message.helpButton + s;
-  char newPacket[36];
+  //String radiopacket = message.temp + s + message.bpm + s + message.spO2 + s + message.posX + s + message.posY + s + message.posZ + s + message.helpButton + s;
   
-  int packetLen = strlen(newPacket);
-  radiopacket.toCharArray(newPacket, packetLen);
-  int newLen = radiopacket.length();
+  //Serial.println(newPacket);
+  //int packetLen = strlen(newPacket);
+  //.toCharArray(newPacket, packetLen);
+  //int newLen = newPacket.length();
   //Serial.println(newLen);
   Serial.println("Format: Temperature  BPM  SPO2  X-Pos  Y-Pos  Z-Pos  DistressSignal MessageNum");
   //Serial.print("Correct Message: ");
   //Serial.println(radiopacket);
-  itoa(packetnum++, newPacket+36, 10);
+  //itoa(packetnum++, newPacket+36, 10);
   //Serial.print("Packet Length: ");
   //Serial.println(packetLen);
-  Serial.print("Sending: "); Serial.println(newPacket);
+  Serial.print("Sending: "); Serial.println(message.temp);
 
   
   // Send a message!
-  rf69.send((char *)newPacket, newLen);
+  rf69.send((uint8_t *)message.temp, strlen(message.temp));
+
   rf69.waitPacketSent();
 
   // Now wait for a reply
@@ -433,11 +446,12 @@ void loop() {
     if (rf69.recv(buf, &len)) {
       Serial.print("Got a reply: ");
       Serial.println((char*)buf);
-      if (strstr((char *)buf, "1")) {
+      if (strstr((char *)buf, "DISTRESS")) {
         remoteHelp = 1;
       }
     } else {
       Serial.println("Receive failed");
+      remoteHelp = 0;
     }
   } else {
     //Serial.println("No reply, is another RFM69 listening?");
