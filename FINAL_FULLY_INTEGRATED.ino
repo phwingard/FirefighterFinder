@@ -114,7 +114,7 @@ void displaySensorDetails(void)
 }
 
 //Thermistor variables
-int ThermistorPin = A9;
+int ThermistorPin = A0;
 int Vo;
 float R1 = 10000;
 float logR2, R2, T;
@@ -128,9 +128,9 @@ int batState = 0;
 //Radio variables
 #define RF69_FREQ 915.0
 //#if defined (__AVR_ATmega328P__)  // Feather 328P w/wing
-  #define RFM69_INT     9  // 
-  #define RFM69_CS      10  //
-  #define RFM69_RST     8  // "A"
+  #define RFM69_INT     3  // 
+  #define RFM69_CS      53  //
+  #define RFM69_RST     31  // "A"
 //  #define LED           40  //dont use yet
 //#endif
 RH_RF69 rf69(RFM69_CS, RFM69_INT);
@@ -143,11 +143,11 @@ int remoteHelp = 0;
 
 
 //pushbutton variables
-int helpButton = 7;
+int helpButton = 32;
 int buttonState = 0;
-int rLED = 6;
+int rLED = 44;
 int yLED = 5;
-int gLED = 4;
+int gLED = 40;
 
 //int count = 0;  //used for sending radio message every n-times
 void setup() {
@@ -262,6 +262,8 @@ float altYaw = 0;
 int t = 0;
 void loop() {
   t = millis();  //timer to show runtime
+  //Serial.println("Time: ");
+  //Serial.println(millis());
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //                        Thermistor
@@ -276,8 +278,8 @@ void loop() {
   T = T - 273.15;
   T = (T * 9.0)/ 5.0 + 32.0; 
 
-  //Serial.print("Temperature: "); 
-  //Serial.print(T);
+  Serial.print("Temperature: "); 
+  Serial.print(T);
   //Serial.println(" F"); 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -286,8 +288,9 @@ void loop() {
 if(count == 10){
   batLevel = analogRead(batteryPin);
 }
-Serial.print("Battery Level:   ");  
-Serial.println(batLevel);
+//Serial.print("Battery Level:   ");  
+//Serial.println(batLevel);
+/*
 if(batLevel > 744){
   digitalWrite(gLED, HIGH);
   batState = 1;
@@ -295,7 +298,7 @@ if(batLevel > 744){
 else if(batLevel <= 744 && count == 10){
   digitalWrite(gLED, LOW);
   batState = 0;
-}
+}*/
 
 
 
@@ -343,16 +346,18 @@ long irValue = particleSensor.getIR();    //Reading the IR value it will permit 
   if(irValue >= 256900){
     spo2 = 99;
   } 
-      /*Serial.print("BPM: ");
+  spo2 = 100;
+  beatsPerMinute = 61.08;
+      Serial.print("   BPM: ");
       Serial.print(beatsPerMinute);
-      Serial.print("   Filtered BPM: ");
-      Serial.print(filteredBPM); 
+      //Serial.print("   Filtered BPM: ");
+      /*Serial.print(filteredBPM); 
       Serial.print("   Avg BPM: ");
-      Serial.print(beatAvg);
+      Serial.print(beatAvg);*/
       Serial.print("   SPO2: ");
       Serial.print(spo2);
-      Serial.print("   irValue: ");
-      Serial.println(irValue); */
+      //Serial.print("   irValue: ");
+      //Serial.println(irValue); 
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -710,10 +715,10 @@ long irValue = particleSensor.getIR();    //Reading the IR value it will permit 
  py = Pupdate(deltat, vy-vyo, py);
  pz = Pupdate(deltat, vz-vzo, pz);
  
-/*
-  Serial.print("X: "); Serial.print(px, 4); Serial.print("  ");
-  Serial.print("Y: "); Serial.print(py, 4); Serial.print("  ");
-  Serial.print("Z: "); Serial.print(pz, 4); Serial.print("  ");  
+
+  Serial.print("  X: "); Serial.print(px, 4); Serial.print("  ");
+  Serial.print("  Y: "); Serial.print(py, 4); Serial.print("  ");
+  Serial.print("  Z: "); Serial.print(pz, 4); Serial.print("  ");  
   Serial.println("m");
   
   //Print for Accelerometer
@@ -740,7 +745,7 @@ long irValue = particleSensor.getIR();    //Reading the IR value it will permit 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //                            Radio
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+/*
 if(count == 10){
   count = 0;
 
@@ -764,19 +769,20 @@ if(count == 10){
   //.toCharArray(newPacket, packetLen);
   //int newLen = newPacket.length();
   //Serial.println(newLen);
-  Serial.println("Format: Temperature  BPM  SPO2  X-Pos  Y-Pos  Z-Pos  DistressSignal MessageNum");
+  //Serial.println("Format: Temperature  BPM  SPO2  X-Pos  Y-Pos  Z-Pos  DistressSignal MessageNum");
   //Serial.print("Correct Message: ");
-  //Serial.println(radiopacket);
+//  Serial.println(radiopacket);
   //itoa(packetnum++, newPacket+36, 10);
   //Serial.print("Packet Length: ");
   //Serial.println(packetLen);
-  Serial.print("Sending: "); Serial.println(message.temp);
 
   
+  Serial.println("Format: Temperature  BPM  SPO2  X-Pos  Y-Pos  Z-Pos  DistressSignal MessageNum");
+  Serial.print("Sending: "); Serial.println(message.temp);
+    
   // Send a message!
   rf69.send((uint8_t *)message.temp, strlen(message.temp));
-
-  rf69.waitPacketSent();
+  //rf69.waitPacketSent();
 
   // Now wait for a reply
   uint8_t buf[RH_RF69_MAX_MESSAGE_LEN];
@@ -789,6 +795,13 @@ if(count == 10){
       Serial.println((char*)buf);
       if (strstr((char *)buf, "DISTRESS")) {
         remoteHelp = 1;
+      }
+      else if(strstr((char*)buf, "REPORT1")){
+        // Send a message!
+        Serial.println("Format: Temperature  BPM  SPO2  X-Pos  Y-Pos  Z-Pos  DistressSignal MessageNum");
+        Serial.print("Sending: "); Serial.println(message.temp);
+        //rf69.send((uint8_t *)message.temp, strlen(message.temp));
+        //rf69.waitPacketSent();
       }
     } else {
       Serial.println("Receive failed");
@@ -858,6 +871,8 @@ else{
 if(batState == 0){
   digitalWrite(gLED, HIGH);
 }
+
+
 
 }
 
