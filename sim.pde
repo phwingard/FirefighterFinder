@@ -75,7 +75,7 @@ void setup(){
     }
   }
   printArray(Serial.list());
-  port = new Serial(this, "COM5", 115200);
+  //port = new Serial(this, "COM5", 115200);
   cp5 = new ControlP5(this);
   map = new Map();
   font = createFont("Arial", 24, true);
@@ -113,12 +113,12 @@ void setup(){
     .setLabel("Map")
     .setColorBackground(col3)
     ;
-  f = cp5.addButton("Generate")
+  /*f = cp5.addButton("Generate")
     .setPosition(1300,70)
     .setSize(135,50)
     .setFont(font)
     ;
-    
+    */
   g = cp5.addButton("Extreme")
     .setPosition(1450,70)
     .setSize(125,50)
@@ -142,7 +142,7 @@ void draw(){
     }
   }
   
-  if (port.available() != 0) {
+  /*if (port.available() != 0) {
     String myString = port.readStringUntil('\n');
   
     if (myString != null) {
@@ -163,17 +163,36 @@ void draw(){
         Distress1();
       }
     }
-  }
+  }*/
   count++;
   if (count % 10 == 0) {
-    x[1][plot_count] = int(random(10));
-    y[1][plot_count] = int(random(10));
-    z[1][plot_count] = int(random(10));
     plot_count++;
     if (plot_count == 100) {
       plot_count = 1;
-      isPlotFull - true;
+      isPlotFull = true;
     }
+    x[0][plot_count] = int(random(10));
+    y[0][plot_count] = int(random(10));
+    z[0][plot_count] = int(random(10));
+    temp[0] = int(random(70, 99));
+    o2[0] = int(random(90,100));
+    bpm[0] = int(random(100,150));
+    if (plot_count > 0) {
+      if (plot_count > 0 && x[1][plot_count - 1] <= 10 && z[1][plot_count - 1] == 0) { //<>//
+        x[1][plot_count] = x[1][plot_count - 1] + 1;
+        y[1][plot_count] = y[1][plot_count - 1] + 1;
+      }
+      else if (plot_count > 0 && x[1][plot_count - 1] == 10 && z[1][plot_count - 1] < 10) {
+        z[1][plot_count] = z[1][plot_count - 1] + 1;
+      }
+      else if (plot_count > 0 && z[1][plot_count - 1] == 10 && x[1][plot_count - 1] > 0) {
+        x[1][plot_count] = x[1][plot_count - 1] - 1;
+        y[1][plot_count] = y[1][plot_count - 1] - 1;
+      }
+      else if (plot_count > 0 && x[1][plot_count - 1] == 0 && z[1][plot_count - 1] > 0) {
+        z[1][plot_count] = z[1][plot_count - 1] - 1;
+      }
+    } 
   }
 
   //if (count % 10 == 0) {
@@ -216,12 +235,12 @@ void draw(){
 
 void Distress1() {
  col1 = color(255,0,0);
- port.write('D');
+ //port.write('D');
 }
 
 void Distress2() {
   col2 = color(255,0,0);
-  port.write('O');
+  //port.write('O');
 }
 
 void Reset() {
@@ -257,7 +276,7 @@ void Map2() {
   }
 }
 
-void Generate() {
+/*void Generate() {
   port.write('R');
   String myString = port.readStringUntil('\n');
   
@@ -279,7 +298,7 @@ void Generate() {
     y[1][plot_count] = int(random(500));
     z[1][plot_count] = int(random(10));
   }
-}
+}*/
 
 void Extreme() {
   temp[0] = 200;

@@ -59,7 +59,7 @@ boolean isUp = true;
 int plot_count = 0;
 boolean isPlotFull = false;
 int idTrack = 0;
-int[] input = new int[7];
+int[] input = new int[8];
 int[] dist = {0, 0};
 
 void settings() {
@@ -113,12 +113,12 @@ void setup(){
     .setLabel("Map")
     .setColorBackground(col3)
     ;
-  f = cp5.addButton("Generate")
+/*  f = cp5.addButton("Generate")
     .setPosition(1300,70)
     .setSize(135,50)
     .setFont(font)
     ;
-    
+  */  
   g = cp5.addButton("Extreme")
     .setPosition(1450,70)
     .setSize(125,50)
@@ -135,7 +135,12 @@ void draw(){
   for (int i = 0; i < 2; i++) {
     if (temp[i] > 100) {
       safe[i] = 'N';
-      Distress1();
+      if (i == 1) {
+        Distress1();
+      }
+      else {
+        Distress2();
+      }
     }
     else {
       safe[i] = 'Y';
@@ -152,29 +157,37 @@ void draw(){
         isPlotFull = true;
       }
       input = int(split(myString, '\t'));
-      x[0][plot_count] = input[3];
-      y[0][plot_count] = input[4];
-      z[0][plot_count] = input[5];
-      temp[0] = input[0];
-      o2[0] = input[2];
-      bpm[0] = input[1];
-      dist[0] = input[6];
-      if (dist[0] == 1) {
-        Distress1();
+      if (input[0] == 1) {
+        x[0][plot_count] = input[4];
+        y[0][plot_count] = input[5];
+        z[0][plot_count] = input[6];
+        temp[0] = input[1];
+        o2[0] = input[3];
+        bpm[0] = input[2];
+        dist[0] = input[6];
+        if (dist[0] == 1) {
+          Distress1();
+        }
       }
+      else {
+        x[1][plot_count] = input[4];
+        y[1][plot_count] = input[5];
+        z[1][plot_count] = input[6];
+        temp[1] = input[1];
+        o2[1] = input[3];
+        bpm[1] = input[2];
+        dist[1] = input[6];
+        if (dist[1] == 1) {
+          Distress2();
+        }
+      }
+      count++;
+      //x[1][plot_count] = int(random(10));
+      //y[1][plot_count] = int(random(10));
+      //z[1][plot_count] = int(random(10));
     }
   }
-  count++;
-  if (count % 10 == 0) {
-    x[1][plot_count] = int(random(10));
-    y[1][plot_count] = int(random(10));
-    z[1][plot_count] = int(random(10));
-    plot_count++;
-    if (plot_count == 100) {
-      plot_count = 1;
-      isPlotFull - true;
-    }
-  }
+    
 
   //if (count % 10 == 0) {
   //  x[0] = int(random(999));
@@ -403,7 +416,7 @@ class Map extends PApplet {
  
   printCamera();
   
-  text("Count = "+(count / 10),20,530,0);
+  text("Count = "+count,20,530,0);
   textSize(32);
   text("X = "+x[idTrack][plot_count]+"  Y = "+y[idTrack][plot_count]+"  Z = "+z[idTrack][plot_count],20,560,0);
 
