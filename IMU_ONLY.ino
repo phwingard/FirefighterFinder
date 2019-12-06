@@ -1,3 +1,6 @@
+//Copyright 2019 Michael White
+//License Notice at Notice.md
+
 #include <Wire.h>
 #include "MAX30105.h"
 #include "spo2_algorithm.h"
