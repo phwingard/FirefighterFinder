@@ -1,2 +1,2 @@
-Peasycam is covered by the Apache License, Version 2
-SparkFun_MAX3010x_Sensor_Library-master is covered by the MIT License
+Peasycam, SensorFusion are covered by the Apache License, Version 2
+SparkFun_MAX3010x_Sensor_Library-master, Adafruit_FXOS8700, Adafruit_FXAS21002C, are covered by the MIT License
