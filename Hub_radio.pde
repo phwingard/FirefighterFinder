@@ -1,4 +1,4 @@
-//Copyright 2019 Michael White
+//Copyright 2019 Patrick Wingard
 //License Notice at Notice.md
 
 import controlP5.*;
