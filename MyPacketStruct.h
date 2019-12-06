@@ -1,3 +1,6 @@
+//Copyright 2019 Michael White
+//License Notice at Notice.md
+
 #ifndef MyPacketStruct_h
 #define MyPacketStruct_h
 
