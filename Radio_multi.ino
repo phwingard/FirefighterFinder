@@ -11,11 +11,13 @@
 RH_RF69 rf69(RFM69_CS, RFM69_INT);
 
 
-int packet[7] = { 0, 0, 0, 0, 0, 0, 0 };
+int packet[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 char msgbuf[6];
 char* msg;
 bool is_ready = true;
-
+int id = 1;
+String report;
+char* rep;
 
 void setup() {
   Serial.begin(115200);
@@ -35,7 +37,7 @@ void setup() {
   Serial.println("RFM69 radio init OK!");
   
   // No encryption
-
+  
   rf69.setTxPower(20, true);
 
   uint8_t key[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
@@ -47,6 +49,15 @@ void setup() {
 }
 
 void loop() {
+  if (id == 1) {
+      report = "REPORT1";
+  }
+  else {
+    report = "REPORT2";
+  }
+  report.toCharArray(rep, 8);
+  rf69.send((uint8_t *)rep, strlen(rep));
+  rf69.waitPacketSent();
   if (rf69.available()) {
     is_ready = true;
     uint8_t buf[RH_RF69_MAX_MESSAGE_LEN];
@@ -54,25 +65,32 @@ void loop() {
     if (rf69.recv(buf, &len)) {
       if (!len) return;
       buf[len] = 0;
+
       msg = (char*)buf;
       String str(msg);
- 
-      for (int i = 0; i < 7; i++) {
+      //Serial.println(msg);
+      packet[0] = id;
+      for (int i = 1; i < 8; i++) {
         String ms = str.substring((i*5), (i*5) + 5);
+        //strncpy(msgbuf, msg + (i*5), 5);
+        //msgbuf[6] = '\0';
         ms.trim();
         packet[i] = ms.toInt();
+        //Serial.println(ms);
       }
 
       // Send a reply!
       uint8_t data[] = "Thank you for your service";
       rf69.send(data, sizeof(data));
       rf69.waitPacketSent();
+      //Serial.println("Sent a reply");
+      //Blink(LED, 40, 3); //blink LED 3 times, 40ms between blinks
     
     } else {
       Serial.println("Receive failed");
     }
 
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 8; i++) {
       Serial.print(packet[i]);
       Serial.print('\t');
     }
@@ -87,6 +105,17 @@ void loop() {
       rf69.send(dist, sizeof(dist));
       rf69.waitPacketSent();
     }
+    if (val == 'O') {
+      //uint8_t dist[] = "DISTRESS2";
+      //rf69.send(dist, sizeof(dist));
+      //rf69.waitPacketSent();
+    }
+  }
+  if (id == 1) {
+    id = 2; 
+  }
+  else {
+    id = 1;
   }
 
 }
