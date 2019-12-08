@@ -52,7 +52,6 @@ int[] o2 = {97, 100};
 int[] bpm = {163, 83};
 char[] smoke = {'N', 'Y'};
 char[] safe = {'Y', 'Y'};
-//float angle = 0.0;
 int gridSize = 40;
 float xm, ym, zm;
 boolean isUp = true;
@@ -113,12 +112,6 @@ void setup(){
     .setLabel("Map")
     .setColorBackground(col3)
     ;
-/*  f = cp5.addButton("Generate")
-    .setPosition(1300,70)
-    .setSize(135,50)
-    .setFont(font)
-    ;
-  */  
   g = cp5.addButton("Extreme")
     .setPosition(1450,70)
     .setSize(125,50)
@@ -182,17 +175,9 @@ void draw(){
         }
       }
       count++;
-      //x[1][plot_count] = int(random(10));
-      //y[1][plot_count] = int(random(10));
-      //z[1][plot_count] = int(random(10));
     }
   }
-    
-
-  //if (count % 10 == 0) {
-  //  x[0] = int(random(999));
- //   x[1] = int(random(999));
- // }
+ 
   fill(255);
   text("ID    X        Y       Z      Temp     O2     BPM     Safe     Distress      Map", 450, 180);
   if (safe[0] == 'N') {
@@ -322,31 +307,6 @@ class Map extends PApplet {
   }
   
   public void draw() {
-    //if (plot_count < 100) {
-      //plot_count++;
-    //if (plot_count == 100) {
-    //  plot_count = 1;
-    //  isPlotFull = true;
-   // }
-      /*if (is_up == 1) {
-        x[0][plot_count] = x[0][plot_count-1] + 10;
-        if (x[0][plot_count] > 500) {
-          is_up = 0;
-        }
-      }
-      else {
-        x[0][plot_count] = x[0][plot_count-1] - 10;
-        if (x[0][plot_count] < 10) {
-          is_up = 1;
-        }
-      }*/
-      /*x[0][plot_count] = int(random(500));
-      y[0][plot_count] = int(random(500));
-      z[0][plot_count] = int(random(10));
-      x[1][plot_count] = int(random(500));
-      y[1][plot_count] = int(random(500));
-      z[1][plot_count] = int(random(10));*/
-    //}
  
     rotateX(-.001);
     rotateY(-.001);
