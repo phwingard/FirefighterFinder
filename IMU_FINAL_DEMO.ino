@@ -9,9 +9,6 @@
 #include <Adafruit_FXAS21002C.h>
 #include <MadgwickAHRS.h>
 #include "heartRate.h"          //Heart rate calculating algorithm
-//#include <SPI.h>
-//#include <RH_RF69.h>
-//#include "MyPacketStruct.h"
 #include <math.h>
 #include <SensorFusion.h>
 #include <MatrixMath.h>
@@ -20,8 +17,6 @@ float g = 9.80665;
 double aG0 = 0;
 double aG1 = 0;
 double aG2 = 0;
-
-//#define PI 3.1415926535897932384626433832795
 
 double Vu = 0;
 double Vv = 0;
@@ -159,9 +154,7 @@ float altYaw = 0;
 int t = 0;
 void loop() {
   t = millis();
-  // put your main code here, to run repeatedly:
-long irValue = particleSensor.getIR();    //Reading the IR value it will permit us to know if there's a finger on the sensor or not
- //Serial.println(irValue);           
+long irValue = particleSensor.getIR();    //Reading the IR value it will permit us to know if there's a finger on the sensor or not        
             //If a finger is detected
   if (checkForBeat(irValue) == true)                        //If a heart beat is detected
   {                                         //Deactivate the buzzer to have the effect of a "bip"
@@ -182,13 +175,6 @@ long irValue = particleSensor.getIR();    //Reading the IR value it will permit 
       for (byte x = 0 ; x < RATE_SIZE ; x++)
         beatAvg += rates[x];
       beatAvg /= RATE_SIZE; 
-      /*
-      Serial.print("BPM: ");
-      Serial.print(beatsPerMinute);
-      Serial.print("   Filtered BPM: ");
-      Serial.print(filteredBPM); 
-      Serial.print("   Avg BPM: ");
-      Serial.println(beatAvg);*/
     }
   }
 
@@ -251,16 +237,6 @@ long irValue = particleSensor.getIR();    //Reading the IR value it will permit 
  Serial.println("Madgwick Filtered: ");
  Serial.print(ax);  Serial.print(" "); Serial.print(ay); Serial.print(" ");  Serial.println(az); 
 
-/*
- Serial.println("Madgwick Filtered (Accel): ");
- Serial.print(ax);  Serial.print(" "); Serial.print(ay); Serial.print(" ");  Serial.println(az); 
-
- Serial.println("Madgwick Filtered (Magneto): ");
- Serial.print(mx);  Serial.print(" "); Serial.print(my); Serial.print(" ");  Serial.println(mz); 
-
- Serial.println("Madgwick Filtered (Gyro): ");
- Serial.print(gx);  Serial.print(" "); Serial.print(gy); Serial.print(" ");  Serial.println(gz); 
-*/
   
   float deg2rad = 0.0174533;
 
@@ -273,16 +249,12 @@ long irValue = particleSensor.getIR();    //Reading the IR value it will permit 
   Serial.print("Pitch: "); Serial.print(pitch, 4); Serial.print("  ");
   Serial.print("Roll: "); Serial.print(roll, 4); Serial.print("  ");  
   Serial.println("rads");
-/*
-  altYaw = /*180 * atan(az / sqrt(ax*ax + az*az)) // float(M_PI)/;
-  Serial.print("Alt Yaw:");
-  Serial.println(altYaw);*/
+
 
 
  //Getting the Rotation Vector
  float r11, r12, r13, r21, r22, r23, r31, r32, r33;
  r11 = cos(pitch)*cos(yaw);
- //Serial.println(r11);
  r12 = cos(pitch)*sin(yaw);
  r13 = -sin(pitch);
  r21 = sin(roll)*sin(pitch)*cos(yaw) - cos(roll)*sin(yaw);
@@ -301,20 +273,9 @@ long irValue = particleSensor.getIR();    //Reading the IR value it will permit 
  orientation[2][0] = r31;
  orientation[2][1] = r32;
  orientation[2][2] = r33;
-/*
-  grav[0][0] = 0;
-  grav[1][0] = 0;
-  grav[2][0] = g;*/
- //Matrix.Print((mtx_type*)grav, N, N, "grav");
- //Matrix.Print((mtx_type*)orientation, N, N, "orientation");
 
  Matrix.Copy((mtx_type*)orientation, N, N, (mtx_type*)oriInv);
  Matrix.Invert((mtx_type*)oriInv, N);
- //Matrix.Print((mtx_type*)orientation, N, N, "inverted");
- //Matrix.Print((mtx_type*)orientation, N, N, "orientation");
-
- //Matrix.Multiply((mtx_type*)oriInv, (mtx_type*)grav, N, N, 1, (mtx_type*)accelG);
- //Matrix.Print((mtx_type*)accelG, N, N, "accel G");
 
  float det = oriInv[0][0]*(oriInv[1][1]*oriInv[2][2] - oriInv[1][2]*oriInv[2][1]) - 
              oriInv[0][1]*(oriInv[1][0]*oriInv[2][2] - oriInv[1][2]*oriInv[2][0]) +
@@ -336,19 +297,14 @@ long irValue = particleSensor.getIR();    //Reading the IR value it will permit 
  Serial.print(aG0);  Serial.print(" "); Serial.print(aG1); Serial.print(" ");  Serial.println(aG2); 
 
 
- //Serial.print(aG0);  Serial.print(aG1);  Serial.println(aG2);
- //Serial.println(aG2);
  
  Vu = Vupdate(deltat, alx, c0);
  Vv = Vupdate(deltat, aly, c1);
  Vw = Vupdate(deltat, alz, c2);
- /*c0 = LowEMA(c0, Vu, 0.002);
- c1 = LowEMA(c1, Vv, 0.002);
- c2 = LowEMA(c2, Vw, 0.002);*/
+
  c0 = Vu;
  c1 = Vv;
  c2 = Vw;
- //Serial.print(Vu);  Serial.print(Vv);  Serial.println(Vw); 
  //u=x v=y w=z
 
  
@@ -378,53 +334,6 @@ long irValue = particleSensor.getIR();    //Reading the IR value it will permit 
   vCount = 0;
  }
 
-  /*
-  Serial.print("Veloctiy Count: ");
-  Serial.println(vCount);
-/*
- if(alx < 0.001){
-  vCount++;
-  Serial.print("Veloctiy Count: ");
-  Serial.println(vCount);
- }
- else{
-  vCount = 0;
- }
- if(aly < 0.001){
-  vCount++;
-  Serial.print("Veloctiy Count: ");
-  Serial.println(vCount);
- }
- else{
-  vCount = 0;
- }
-  if(alz < 0.001){
-  vCount++;
-  Serial.print("Veloctiy Count: ");
-  Serial.println(vCount);
- }
- else{
-  vCount = 0;
- }
- 
- if(vCount > 100){
-  Vu = 0;
-  Vv = 0;
-  Vw = 0;
-  vCount = 0;
- }*/
-
-
-
- 
-/*
- if ((vy > 12.5) || (-vy > 12.5) || (vy > 8.3) || (-vy > 8.3)){
-  vy = 0;
- }
- if ((vz > 12.5) || (-vz > 12.5) || (vy > 8.3) || (-vy > 8.3)){
-  vz = 0;
- }*/
-
 
 
 
@@ -446,7 +355,6 @@ long irValue = particleSensor.getIR();    //Reading the IR value it will permit 
  alx = ax - acx;
  aly = ay - acy;
  alz = az - acz;*/
- //Serial.print(alx);  Serial.print(" "); Serial.print(aly); Serial.print(" ");  Serial.println(alz); 
 
  
  Serial.println("Gravity Corrected: ");
@@ -470,16 +378,6 @@ long irValue = particleSensor.getIR();    //Reading the IR value it will permit 
  ayr = r21*alx + r22*aly + r23*alz;
  azr = r31*alx + r32*aly + r33*alz;
 
-/*
- if ((axr > 3.5 ) || (axr < 0.7)){
-  axr = 0;
- }
- if ((ayr > 3.5 ) || (ayr < 0.7)){
-  ayr = 0;
- }
-  if ((azr > 3.5 ) || (azr < 0.7)){
-  azr = 0;
- }*/
 
  Serial.println("Rotated Back to Ref Frame: ");
  Serial.print(axr);  Serial.print(" "); Serial.print(ayr); Serial.print(" ");  Serial.println(azr); 
@@ -499,12 +397,8 @@ long irValue = particleSensor.getIR();    //Reading the IR value it will permit 
  gravx = LowEMA(gravx, alx, 0.0003);
  gravy = LowEMA(gravy, aly, 0.0003);
  gravz = LowEMA(gravz, alz, 0.05);
-/*
- Serial.println("Gravity Vector: ");
- Serial.print(gravx);  Serial.print(" "); Serial.print(gravy); Serial.print(" ");  Serial.println(gravz); 
-*/
 
- //Serial.println(t);
+
  if(t < 6000){
   vx = 0;
   vy = 0;
@@ -527,21 +421,7 @@ long irValue = particleSensor.getIR();    //Reading the IR value it will permit 
  vxo = LowEMA(vxo, vx, 0.002);
  vyo = LowEMA(vyo, vy, 0.002);
  vzo = LowEMA(vzo, vz, 0.002);
- /*float abv = vx*vx + vy*vy +  vz*vz;
- 
- /*
- if ((abv > 12.5 ) || (abv < 0.025)){
-  vx = 0;
-  vy = 0;
-  vz = 0;
- }
-/*
- if ((vy > 12.5) || (-vy > 12.5) || (vy > 8.3) || (-vy > 8.3)){
-  vy = 0;
- }
- if ((vz > 12.5) || (-vz > 12.5) || (vy > 8.3) || (-vy > 8.3)){
-  vz = 0;
- }*/
+
 
 
  px = Pupdate(deltat, vx-vxo, px);
