@@ -15,12 +15,13 @@
 
  - Sim: Output dummy data to application when requested
  - Radio: Take single-target data via radio and output to application
+ - Radio_multi: possibly-functional code for 2-target integration
  
 ### Application Code:
 
  - Hub: Blank hub template
  - Hub_radio: Single-target radio data via Radio.ino
- - Hub_multi: Nonfunctional code for multiple tracker integration
+ - Hub_multi: Functional code for 2-tracker integration
  - Hub_sim: Fully functional simulated data
  
  ## Licenses:
