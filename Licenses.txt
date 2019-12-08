@@ -1,2 +1,3 @@
-Peasycam, SensorFusion are covered by the Apache License, Version 2
-SparkFun_MAX3010x_Sensor_Library-master, Adafruit_FXOS8700, Adafruit_FXAS21002C, are covered by the MIT License
+Peasycam and SensorFusion are covered by the Apache License, Version 2
+SparkFun_MAX3010x_Sensor_Library-master, Adafruit_FXOS8700, and Adafruit_FXAS21002C are covered by the MIT License
+Processing, MatrixMath, Madgwick, Radiohead, and the project as a whole are covered under GPL V2.1
