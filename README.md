@@ -21,6 +21,7 @@
  - Hub: Blank hub template
  - Hub_radio: Single-target radio data via Radio.ino
  - Hub_multi: Nonfunctional code for multiple tracker integration
+ - Hub_sim: Fully functional simulated data
  
  ## Licenses:
  
