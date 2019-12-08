@@ -25,8 +25,8 @@
  
  ## Licenses:
  
- For full license, see LICENCE
- For copyright notice, see Notice.md
- For MIT License, see LICENSE.MIT
- For Apache Licence, see LICENSE.APACHE
- For list of licensed libraries, see Licenses.txt
+ For full license, see LICENCE  
+ For copyright notice, see Notice.md  
+ For MIT License, see LICENSE.MIT  
+ For Apache Licence, see LICENSE.APACHE  
+ For list of licensed libraries, see Licenses.txt  
