@@ -1,3 +1,6 @@
+//Copyright 2019 Patrick Wingard
+//License Notice at Notice.md
+
 #include <SPI.h>
 #include <RH_RF69.h>
 
